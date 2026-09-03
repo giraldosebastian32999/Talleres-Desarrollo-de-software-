@@ -1,0 +1,251 @@
+from abc import ABC, abstractmethod
+from datetime import datetime, date
+from typing import List
+import uuid
+
+
+class Cliente:
+    def __init__(self, documento: str, nombre: str, correo: str,
+                 telefono: str, direccion: str):
+        self.__id = str(uuid.uuid4())[:8]
+        self.__documento = documento
+        self.__nombre = nombre
+        self.__correo = correo
+        self.__telefono = telefono
+        self.__direccion = direccion
+        self.__estado = "Activo"
+        self.__cuentas: List["Cuenta"] = []
+        self.__facturas: List["Factura"] = []
+
+    @property
+    def id(self) -> str:
+        return self.__id
+
+    @property
+    def documento(self) -> str:
+        return self.__documento
+
+    @property
+    def nombre(self) -> str:
+        return self.__nombre
+
+    @property
+    def correo(self) -> str:
+        return self.__correo
+
+    @property
+    def estado(self) -> str:
+        return self.__estado
+
+    @property
+    def cuentas(self) -> List["Cuenta"]:
+        return list(self.__cuentas)
+
+    @property
+    def facturas(self) -> List["Factura"]:
+        return list(self.__facturas)
+
+    def actualizar_correo(self, nuevo_correo: str) -> None:
+        if "@" not in nuevo_correo:
+            raise ValueError("Correo con formato invalido")
+        self.__correo = nuevo_correo
+
+    def eliminar(self) -> None:
+        tiene_deuda = any(f.estado == "Pendiente" for f in self.__facturas)
+        if tiene_deuda:
+            raise PermissionError("El cliente tiene facturas pendientes")
+        self.__estado = "Inactivo"
+
+    def agregar_cuenta(self, cuenta: "Cuenta") -> None:
+        self.__cuentas.append(cuenta)
+
+    def agregar_factura(self, factura: "Factura") -> None:
+        self.__facturas.append(factura)
+
+    def __str__(self) -> str:
+        return f"Cliente({self.__nombre}, doc={self.__documento}, estado={self.__estado})"
+
+
+class Cuenta(ABC):
+    def __init__(self, cliente: Cliente):
+        self._numero = str(uuid.uuid4())[:10].upper()
+        self._cliente = cliente
+        self._estado = "Activa"
+        self._fecha_apertura = date.today()
+        self._saldo = 0.0
+        cliente.agregar_cuenta(self)
+
+    @property
+    def numero(self) -> str:
+        return self._numero
+
+    @property
+    def saldo(self) -> float:
+        return self._saldo
+
+    @property
+    def estado(self) -> str:
+        return self._estado
+
+    def depositar(self, monto: float) -> None:
+        if monto <= 0:
+            raise ValueError("El monto a depositar debe ser positivo")
+        self._saldo += monto
+
+    def debitar(self, monto: float) -> None:
+        if monto > self.saldo_disponible():
+            raise ValueError("Saldo o cupo insuficiente para el debito")
+        self._saldo -= monto
+
+    def cerrar(self) -> None:
+        if self._saldo != 0:
+            raise PermissionError("No se puede cerrar una cuenta con saldo distinto de cero")
+        self._estado = "Cerrada"
+
+    @abstractmethod
+    def calcular_rendimiento(self) -> float:
+        raise NotImplementedError
+
+    @abstractmethod
+    def saldo_disponible(self) -> float:
+        raise NotImplementedError
+
+    def __str__(self) -> str:
+        return f"{self.__class__.__name__}({self._numero}, saldo={self._saldo:.2f})"
+
+
+class CuentaAhorros(Cuenta):
+    TASA_MAXIMA = 0.12
+
+    def __init__(self, cliente: Cliente, tasa_interes: float = 0.03):
+        super().__init__(cliente)
+        self.__tasa_interes = 0.0
+        self.configurar_tasa(tasa_interes)
+
+    def configurar_tasa(self, tasa: float) -> None:
+        if tasa < 0 or tasa > self.TASA_MAXIMA:
+            raise ValueError(f"Tasa fuera de rango (0 - {self.TASA_MAXIMA})")
+        self.__tasa_interes = tasa
+
+    def calcular_rendimiento(self) -> float:
+        return self._saldo * self.__tasa_interes
+
+    def saldo_disponible(self) -> float:
+        return self._saldo
+
+
+class CuentaCorriente(Cuenta):
+    def __init__(self, cliente: Cliente, cupo_sobregiro: float = 0.0):
+        super().__init__(cliente)
+        self.__cupo_sobregiro = cupo_sobregiro
+
+    def configurar_cupo(self, cupo: float) -> None:
+        if cupo < 0:
+            raise ValueError("El cupo de sobregiro no puede ser negativo")
+        self.__cupo_sobregiro = cupo
+
+    def calcular_rendimiento(self) -> float:
+        costo_manejo_mensual = -2.50
+        return costo_manejo_mensual
+
+    def saldo_disponible(self) -> float:
+        return self._saldo + self.__cupo_sobregiro
+
+
+class Factura:
+    def __init__(self, cliente: Cliente, valor: float, servicio: str):
+        self.__numero = str(uuid.uuid4())[:10].upper()
+        self.__cliente = cliente
+        self.__valor = valor
+        self.__servicio = servicio
+        self.__fecha_emision = date.today()
+        self.__estado = "Pendiente"
+        cliente.agregar_factura(self)
+
+    @property
+    def numero(self) -> str:
+        return self.__numero
+
+    @property
+    def valor(self) -> float:
+        return self.__valor
+
+    @property
+    def estado(self) -> str:
+        return self.__estado
+
+    @property
+    def servicio(self) -> str:
+        return self.__servicio
+
+    def marcar_pagada(self) -> None:
+        self.__estado = "Pagada"
+
+    def anular(self, motivo: str) -> None:
+        if self.__estado == "Pagada":
+            raise PermissionError("No se puede anular una factura ya pagada")
+        if not motivo:
+            raise ValueError("El motivo de anulacion es obligatorio")
+        self.__estado = "Anulada"
+
+    def __str__(self) -> str:
+        return f"Factura({self.__numero}, {self.__servicio}, ${self.__valor:.2f}, {self.__estado})"
+
+
+class Pago:
+    def __init__(self, cuenta: Cuenta, factura: Factura):
+        self.__referencia = str(uuid.uuid4())[:12].upper()
+        self.__cuenta = cuenta
+        self.__factura = factura
+        self.__monto = factura.valor
+        self.__fecha = datetime.now()
+        self.__estado = "En proceso"
+
+    def procesar(self) -> None:
+        if self.__estado == "Confirmado":
+            raise PermissionError("Este pago ya fue procesado")
+        self.__cuenta.debitar(self.__monto)
+        self.__factura.marcar_pagada()
+        self.__estado = "Confirmado"
+
+    @property
+    def estado(self) -> str:
+        return self.__estado
+
+    def __str__(self) -> str:
+        return f"Pago({self.__referencia}, ${self.__monto:.2f}, {self.__estado})"
+
+
+def main():
+    cliente = Cliente("123456789", "Ana Torres", "ana@correo.com", "3000000000", "Cra 1 #2-3")
+    print(cliente)
+
+    ahorros = CuentaAhorros(cliente, tasa_interes=0.05)
+    corriente = CuentaCorriente(cliente, cupo_sobregiro=100)
+    ahorros.depositar(200)
+    corriente.depositar(50)
+    print(ahorros)
+    print(corriente)
+
+    try:
+        Cuenta(cliente)
+    except TypeError as e:
+        print(f"Error esperado -> {e}")
+
+    cuentas: List[Cuenta] = [ahorros, corriente]
+    for c in cuentas:
+        print(f"{c.__class__.__name__}: rendimiento={c.calcular_rendimiento():.2f}  "
+              f"disponible={c.saldo_disponible():.2f}")
+
+    factura = Factura(cliente, valor=80, servicio="Energia")
+    print(factura)
+
+    pago = Pago(corriente, factura)
+    pago.procesar()
+    print(pago)
+    print(factura)
+    print(corriente)
+
+
+if __name__ == "__main__":
+    main()
