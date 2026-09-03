@@ -1,0 +1,877 @@
+CU-06
+Nombre: Consultar Cuenta====================================================================
+PROYECTO: PAGOS - Sistema de Pagos de Servicios Publicos
+====================================================================
+
+--------------------------------------------------------------------
+CLAVE: PAGOS-1
+TIPO DE INCIDENCIA: Historia
+RESUMEN: Crear Cliente
+--------------------------------------------------------------------
+DESCRIPCION:
+
+ID: CU-01
+Nombre: Crear Cliente
+Actor primario: Administrador del istema
+Actores secundarios: Sistema de Notificaciones
+
+Precondiciones:
+- El administrador tiene sesion activa con permisos de gestion de clientes
+- El documento de identidad no existe previamente en el sistema
+
+Postcondiciones (exito):
+- El cliente queda registrado con ID unico y estado "Activo"
+
+Flujo principal:
+1. El administrador selecciona "Crear cliente"
+2. El sistema muestra el formulario (nombre, documento, correo, telefono, direccion)
+3. El administrador diligencia los datos y confirma
+4. El sistema valida formato y unicidad del documento
+5. El sistema almacena el cliente y asigna un ID unico
+6. El sistema de notificaciones envia un correo de bienvenida
+
+Flujos alternativos:
+1a. Importacion masiva por CSV: el sistema valida cada fila y crea multiples clientes en lote
+3a. Guardado como borrador: el sistema almacena datos incompletos con estado "Incompleto"
+3b. Registro asistido telefonicamente: un asesor diligencia el formulario en nombre del cliente
+
+Excepciones:
+4a. Documento duplicado: el sistema informa "El cliente ya esta registrado"
+4b. Datos obligatorios incompletos: el sistema resalta el campo faltante y no permite continuar
+6a. Fallo en el envio de notificacion: el sistema registra el cliente y reintenta el envio del correo
+
+Reglas de negocio referenciadas:
+- RN-01: El documento de identidad es unico por cliente
+- RN-02: El correo electronico es obligatorio para notificaciones
+
+--------------------------------------------------------------------
+CLAVE: PAGOS-2
+TIPO DE INCIDENCIA: Historia
+RESUMEN: Consultar Cliente
+--------------------------------------------------------------------
+DESCRIPCION:
+
+ID: CU-02
+Nombre: Consultar Cliente
+Actor primario: Administrador del sistema / Cliente (autoconsulta)
+Actores secundarios: -
+
+Precondiciones:
+- El cliente existe en el sistema
+
+Postcondiciones (exito):
+- Se muestra la informacion del cliente sin modificarla
+
+Flujo principal:
+1. El actor busca al cliente por documento, nombre o ID
+2. El sistema ejecuta la busqueda
+3. El sistema muestra los datos del cliente y sus cuentas asociadas
+
+Flujos alternativos:
+1a. Busqueda con filtros avanzados por estado o ciudad
+3a. Exportacion de resultados a Excel/PDF
+3b. Vista resumida vs. vista detallada de la informacion del cliente
+
+Excepciones:
+2a. Cliente no encontrado: el sistema muestra "No se encontraron resultados"
+1b. Acceso no autorizado: un cliente intenta consultar el perfil de otro cliente
+2b. Error de conexion con la base de datos
+
+Reglas de negocio referenciadas:
+- RN-03: Un cliente solo puede consultar su propia informacion, salvo el administrador
+
+--------------------------------------------------------------------
+CLAVE: PAGOS-3
+TIPO DE INCIDENCIA: Historia
+RESUMEN: Actualizar Cliente
+--------------------------------------------------------------------
+DESCRIPCION:
+
+ID: CU-03
+Nombre: Actualizar Cliente
+Actor primario: Administrador del sistema
+Actores secundarios: Sistema de Notificaciones
+
+Precondiciones:
+- El cliente existe y esta activo
+
+Postcondiciones (exito):
+- Los datos del cliente quedan actualizados y se notifica el cambio
+
+Flujo principal:
+1. El administrador busca y selecciona el cliente
+2. El sistema muestra el formulario con los datos actuales
+3. El administrador edita los campos permitidos y confirma
+4. El sistema valida los nuevos datos
+5. El sistema guarda los cambios
+6. El sistema de notificaciones envia un aviso al cliente
+
+Flujos alternativos:
+3a. Cambio de estado a inactivo en vez de editar datos
+2a. Consulta del historial de cambios antes de editar
+3b. Actualizacion masiva de un campo para varios clientes
+
+Excepciones:
+4a. Dato invalido (correo/telefono con formato incorrecto)
+5a. Conflicto de concurrencia: otro administrador modifico el registro simultaneamente
+6a. Fallo en la notificacion: el sistema guarda el cambio y reintenta el envio del aviso
+
+Reglas de negocio referenciadas:
+- RN-04: Toda modificacion de datos de cliente queda trazada con usuario y fecha
+
+--------------------------------------------------------------------
+CLAVE: PAGOS-4
+TIPO DE INCIDENCIA: Historia
+RESUMEN: Eliminar Cliente
+--------------------------------------------------------------------
+DESCRIPCION:
+
+ID: CU-04
+Nombre: Eliminar Cliente
+Actor primario: Administrador del sistema
+Actores secundarios: -
+
+Precondiciones:
+- El cliente existe
+- El cliente no tiene facturas pendientes ni cuentas con saldo
+
+Postcondiciones (exito):
+- El cliente queda marcado como "Inactivo"
+
+Flujo principal:
+1. El administrador selecciona el cliente a eliminar
+2. El sistema verifica que no existan facturas pendientes ni saldos
+3. El sistema solicita confirmacion
+4. El administrador confirma
+5. El sistema marca al cliente como inactivo y conserva su historial
+
+Flujos alternativos:
+2a. Eliminacion definitiva si no tiene ningun historial de pagos
+5a. Reactivacion posterior de un cliente inactivado
+3a. Solicitud de doble confirmacion cuando el cliente tiene cuentas asociadas
+
+Excepciones:
+2b. Facturas o saldos pendientes: el sistema impide la eliminacion
+1a. Cliente inexistente: el sistema informa "El cliente no existe"
+4a. El administrador cancela la confirmacion y el caso de uso termina sin cambios
+
+Reglas de negocio referenciadas:
+- RN-05: No se puede eliminar un cliente con obligaciones economicas activas
+
+--------------------------------------------------------------------
+CLAVE: PAGOS-5
+TIPO DE INCIDENCIA: Historia
+RESUMEN: Crear Cuenta (base)
+--------------------------------------------------------------------
+DESCRIPCION:
+
+ID: CU-05
+Nombre: Crear Cuenta (base)
+Actor primario: Administrador del sistema
+Actores secundarios: Sistema Bancario
+
+Precondiciones:
+- El cliente titular existe y esta activo
+
+Postcondiciones (exito):
+- La cuenta queda creada con numero unico, estado "Activa" y asociada al cliente
+
+Flujo principal:
+1. El administrador selecciona "Crear cuenta" y elige el cliente titular
+2. El sistema solicita tipo de cuenta (Ahorros/Corriente) y datos base
+3. El administrador confirma
+4. El sistema valida los datos y solicita verificacion al Sistema Bancario
+5. El sistema crea la cuenta con numero unico
+
+Flujos alternativos:
+1a. Cuenta conjunta con mas de un titular
+2a. Cuenta creada sin deposito inicial (estado "Activa - pendiente de fondeo")
+4a. Verificacion bancaria acelerada para clientes con historial previo
+
+Excepciones:
+1b. Cliente inactivo: el sistema rechaza la creacion
+4b. Fallo de verificacion bancaria: no se crea la cuenta y se muestra el error
+5a. Numero de cuenta duplicado (colision): el sistema genera un nuevo numero automaticamente
+
+Reglas de negocio referenciadas:
+- RN-06: Toda cuenta debe estar asociada a al menos un cliente activo
+
+--------------------------------------------------------------------
+CLAVE: PAGOS-6
+TIPO DE INCIDENCIA: Historia
+RESUMEN: Consultar Cuenta
+--------------------------------------------------------------------
+DESCRIPCION:
+
+ID: CU-06
+Nombre: Consultar Cuenta
+Actor primario: Cliente / Administrador del sistema
+Actores secundarios: -
+
+Precondiciones:
+- La cuenta existe
+
+Postcondiciones (exito):
+- Se muestra la informacion de la cuenta sin modificarla
+
+Flujo principal:
+1. El actor busca la cuenta por numero o por cliente
+2. El sistema recupera los datos de la cuenta
+3. El sistema muestra tipo, estado, fecha de apertura y titular(es)
+
+Flujos alternativos:
+1a. Consulta consolidada de todas las cuentas del cliente
+3a. Consulta del historial de transacciones de la cuenta
+3b. Consulta comparativa entre dos cuentas del mismo cliente
+
+Excepciones:
+2a. Cuenta no encontrada
+2b. Cuenta bloqueada: se muestran datos basicos pero se oculta saldo y movimientos
+2c. Error de comunicacion con el core bancario al recuperar el estado en tiempo real
+
+Reglas de negocio referenciadas:
+- RN-07: El saldo de cuentas bloqueadas no es visible salvo para el administrador
+
+--------------------------------------------------------------------
+CLAVE: PAGOS-7
+TIPO DE INCIDENCIA: Historia
+RESUMEN: Actualizar Cuenta
+--------------------------------------------------------------------
+DESCRIPCION:
+
+ID: CU-07
+Nombre: Actualizar Cuenta
+Actor primario: Administrador del sistema
+Actores secundarios: Sistema de Notificaciones
+
+Precondiciones:
+- La cuenta existe y esta activa
+
+Postcondiciones (exito):
+- Los atributos editables de la cuenta quedan actualizados
+
+Flujo principal:
+1. El administrador selecciona la cuenta a modificar
+2. El sistema muestra los datos editables
+3. El administrador edita y confirma
+4. El sistema valida y guarda los cambios
+5. El sistema notifica al cliente titular
+
+Flujos alternativos:
+3a. Bloqueo de la cuenta por sospecha de fraude
+3b. Cambio de titular con validacion adicional
+3c. Ajuste temporal de limites de transaccion por solicitud del cliente
+
+Excepciones:
+1a. Transaccion en curso: el sistema impide editar
+4a. Dato fuera de rango (limite o cupo invalido)
+5a. Fallo en la notificacion: el cambio se guarda pero se reintenta el aviso
+
+Reglas de negocio referenciadas:
+- RN-08: No se puede modificar una cuenta con una transaccion en proceso
+
+--------------------------------------------------------------------
+CLAVE: PAGOS-8
+TIPO DE INCIDENCIA: Historia
+RESUMEN: Eliminar (Cerrar) Cuenta
+--------------------------------------------------------------------
+DESCRIPCION:
+
+ID: CU-08
+Nombre: Eliminar (Cerrar) Cuenta
+Actor primario: Administrador del sistema
+Actores secundarios: Sistema Bancario
+
+Precondiciones:
+- La cuenta existe y su saldo es cero
+
+Postcondiciones (exito):
+- La cuenta queda en estado "Cerrada", conservando su historial
+
+Flujo principal:
+1. El administrador selecciona la cuenta a cerrar
+2. El sistema verifica que el saldo sea cero y no haya pagos en tramite
+3. El sistema solicita confirmacion final
+4. El administrador confirma
+5. El sistema cambia el estado a "Cerrada" e informa al Sistema Bancario
+
+Flujos alternativos:
+2a. Transferencia del saldo remanente a otra cuenta antes de cerrar
+1a. Cierre programado para una fecha futura
+5a. Cierre con generacion automatica de certificado de cierre para el cliente
+
+Excepciones:
+2b. Saldo distinto de cero: se impide el cierre
+2c. Transaccion en curso: se bloquea el cierre hasta finalizar
+5b. Fallo al informar al Sistema Bancario: el cierre queda "Pendiente de confirmacion"
+
+Reglas de negocio referenciadas:
+- RN-09: Solo se cierran cuentas con saldo cero y sin transacciones pendientes
+
+--------------------------------------------------------------------
+CLAVE: PAGOS-9
+TIPO DE INCIDENCIA: Historia
+RESUMEN: Configurar tasa de interes (Cuenta de Ahorros)
+--------------------------------------------------------------------
+DESCRIPCION:
+
+ID: CU-09
+Nombre: Configurar tasa de interes (Cuenta de Ahorros)
+Actor primario: Administrador del sistema
+Actores secundarios: -
+
+Precondiciones:
+- Se creo la cuenta base (CU-05) con tipo "Ahorros"
+
+Postcondiciones (exito):
+- La cuenta queda con tasa de interes y periodicidad de liquidacion definidas
+
+Flujo principal:
+1. El sistema solicita la tasa de interes anual y la periodicidad de liquidacion
+2. El administrador ingresa los valores
+3. El sistema valida que la tasa este dentro del rango permitido
+4. El sistema guarda la configuracion en la cuenta
+
+Flujos alternativos:
+2a. Tasa preferencial por antiguedad, sujeta a aprobacion de supervisor
+1a. Tasa por defecto si el administrador no ingresa un valor
+2b. Tasa escalonada segun el saldo promedio mensual
+
+Excepciones:
+3a. Tasa fuera de rango: se rechazan tasas negativas o superiores al maximo regulado
+2c. Falta aprobacion de supervisor para tasa preferencial
+4a. Error al guardar la configuracion por caida del servicio
+
+Reglas de negocio referenciadas:
+- RN-10: La tasa de interes no puede superar el tope regulado vigente
+
+--------------------------------------------------------------------
+CLAVE: PAGOS-10
+TIPO DE INCIDENCIA: Historia
+RESUMEN: Actualizar tasa de interes (Cuenta de Ahorros)
+--------------------------------------------------------------------
+DESCRIPCION:
+
+ID: CU-10
+Nombre: Actualizar tasa de interes (Cuenta de Ahorros)
+Actor primario: Administrador del sistema
+Actores secundarios: Sistema de Notificaciones
+
+Precondiciones:
+- La cuenta de ahorros existe y esta activa
+
+Postcondiciones (exito):
+- La nueva tasa aplica desde el siguiente ciclo de liquidacion
+
+Flujo principal:
+1. El administrador selecciona la cuenta de ahorros
+2. El sistema muestra la tasa vigente
+3. El administrador ingresa la nueva tasa y confirma
+4. El sistema valida el rango permitido
+5. El sistema guarda la nueva tasa con fecha de vigencia
+6. El sistema notifica al cliente
+
+Flujos alternativos:
+3a. Cambio masivo de tasa para todo un segmento de cuentas
+3b. Programacion de la vigencia para una fecha futura
+3c. Reversion a la tasa anterior dentro de las 24 horas siguientes al cambio
+
+Excepciones:
+4a. Tasa fuera de rango
+1a. Cuenta cerrada: se impide la actualizacion
+6a. Fallo en la notificacion al cliente
+
+Reglas de negocio referenciadas:
+- RN-10: La tasa de interes no puede superar el tope regulado vigente
+
+--------------------------------------------------------------------
+CLAVE: PAGOS-11
+TIPO DE INCIDENCIA: Historia
+RESUMEN: Configurar cupo de sobregiro (Cuenta Corriente)
+--------------------------------------------------------------------
+DESCRIPCION:
+
+ID: CU-11
+Nombre: Configurar cupo de sobregiro (Cuenta Corriente)
+Actor primario: Administrador del sistema
+Actores secundarios: Sistema Bancario
+
+Precondiciones:
+- Se creo la cuenta base (CU-05) con tipo "Corriente"
+
+Postcondiciones (exito):
+- La cuenta queda con un cupo de sobregiro autorizado
+
+Flujo principal:
+1. El sistema solicita el cupo de sobregiro solicitado
+2. El administrador ingresa el valor
+3. El sistema envia la solicitud al Sistema Bancario
+4. El Sistema Bancario aprueba el cupo
+5. El sistema guarda el cupo aprobado en la cuenta
+
+Flujos alternativos:
+2a. Cuenta creada sin cupo de sobregiro (cero)
+4a. Cupo condicionado: el banco aprueba un valor menor al solicitado
+3a. Solicitud de cupo con documentacion adicional para clientes nuevos
+
+Excepciones:
+4b. Cupo rechazado por perfil de riesgo
+3b. Fallo de comunicacion: la solicitud reintenta y queda "Pendiente" si persiste
+5a. Cupo aprobado no coincide con el registrado: se marca para revision manual
+
+Reglas de negocio referenciadas:
+- RN-11: El cupo de sobregiro esta sujeto a aprobacion del perfil de riesgo del cliente
+
+--------------------------------------------------------------------
+CLAVE: PAGOS-12
+TIPO DE INCIDENCIA: Historia
+RESUMEN: Actualizar cupo de sobregiro (Cuenta Corriente)
+--------------------------------------------------------------------
+DESCRIPCION:
+
+ID: CU-12
+Nombre: Actualizar cupo de sobregiro (Cuenta Corriente)
+Actor primario: Administrador del sistema
+Actores secundarios: Sistema Bancario
+
+Precondiciones:
+- La cuenta corriente existe y esta activa
+
+Postcondiciones (exito):
+- El cupo de sobregiro queda actualizado
+
+Flujo principal:
+1. El administrador selecciona la cuenta corriente
+2. El sistema muestra el cupo vigente
+3. El administrador solicita el nuevo cupo
+4. El sistema envia la solicitud al Sistema Bancario
+5. El sistema actualiza el cupo aprobado
+
+Flujos alternativos:
+1a. Reduccion automatica del cupo por mora del cliente
+3a. Ampliacion temporal del cupo por tiempo limitado
+3b. Solicitud de aumento de cupo iniciada por el propio cliente
+
+Excepciones:
+4a. Cupo rechazado: se mantiene el cupo anterior
+2a. Sobregiro activo mayor al nuevo cupo: se impide la reduccion
+4b. Fallo de comunicacion con el Sistema Bancario durante la actualizacion
+
+Reglas de negocio referenciadas:
+- RN-11: El cupo de sobregiro esta sujeto a aprobacion del perfil de riesgo del cliente
+
+--------------------------------------------------------------------
+CLAVE: PAGOS-13
+TIPO DE INCIDENCIA: Historia
+RESUMEN: Crear Factura
+--------------------------------------------------------------------
+DESCRIPCION:
+
+ID: CU-13
+Nombre: Crear Factura
+Actor primario: Sistema de Facturacion del Proveedor (automatico) / Administrador (manual)
+Actores secundarios: Sistema de Notificaciones
+
+Precondiciones:
+- El cliente y el servicio asociado existen en el sistema
+
+Postcondiciones (exito):
+- Se registra la factura con estado "Pendiente" y fecha de vencimiento
+
+Flujo principal:
+1. El Sistema de Facturacion del Proveedor envia los datos de consumo del periodo
+2. El sistema calcula el valor a pagar y genera la factura
+3. El sistema asocia la factura al cliente y a su cuenta de referencia
+4. El sistema notifica al cliente sobre la nueva factura
+
+Flujos alternativos:
+1a. Factura manual por ajuste o reliquidacion
+2a. Facturacion consolidada de varios servicios en una sola factura
+1b. Recepcion de datos de consumo por lote (varios clientes a la vez)
+
+Excepciones:
+1c. Cliente inexistente: se rechaza la factura y se genera un log de error
+2b. Datos de consumo invalidos (negativos o nulos)
+4a. Fallo en la notificacion: la factura se crea igual y se reintenta el aviso
+
+Reglas de negocio referenciadas:
+- RN-12: Toda factura debe estar asociada a un cliente y una cuenta validos
+
+--------------------------------------------------------------------
+CLAVE: PAGOS-14
+TIPO DE INCIDENCIA: Historia
+RESUMEN: Consultar Factura
+--------------------------------------------------------------------
+DESCRIPCION:
+
+ID: CU-14
+Nombre: Consultar Factura
+Actor primario: Cliente / Administrador del sistema
+Actores secundarios: -
+
+Precondiciones:
+- La factura existe
+
+Postcondiciones (exito):
+- Se muestra el detalle de la factura sin modificarla
+
+Flujo principal:
+1. El actor busca la factura por numero, cliente o periodo
+2. El sistema recupera la informacion
+3. El sistema muestra valor, estado, fecha de emision y vencimiento
+
+Flujos alternativos:
+3a. Descarga de la factura en formato PDF
+1a. Filtro por estado (pendiente, pagada, vencida)
+1b. Consulta agrupada por servicio (agua, luz, gas)
+
+Excepciones:
+2a. Factura no encontrada
+1c. Acceso no autorizado a factura de otro cliente
+2b. Error al generar el PDF de la factura
+
+Reglas de negocio referenciadas:
+- RN-03: Un cliente solo puede consultar su propia informacion, salvo el administrador
+
+--------------------------------------------------------------------
+CLAVE: PAGOS-15
+TIPO DE INCIDENCIA: Historia
+RESUMEN: Actualizar Factura
+--------------------------------------------------------------------
+DESCRIPCION:
+
+ID: CU-15
+Nombre: Actualizar Factura
+Actor primario: Administrador del sistema
+Actores secundarios: Sistema de Notificaciones
+
+Precondiciones:
+- La factura existe y esta en estado "Pendiente"
+
+Postcondiciones (exito):
+- La factura queda con los datos corregidos y se notifica al cliente
+
+Flujo principal:
+1. El administrador selecciona la factura a corregir
+2. El sistema muestra los datos actuales
+3. El administrador edita el valor o fecha de vencimiento y confirma
+4. El sistema valida y guarda el ajuste con trazabilidad
+5. El sistema notifica al cliente
+
+Flujos alternativos:
+3a. Aplicacion de descuento por pronto pago o recargo por mora
+3b. Reliquidacion completa (anular y recalcular desde cero)
+3c. Ajuste de fecha de vencimiento por solicitud del cliente
+
+Excepciones:
+1a. Factura ya pagada: no se puede editar
+4a. Valor invalido (negativo)
+5a. Fallo en la notificacion: el cambio se guarda pero se reintenta el aviso
+
+Reglas de negocio referenciadas:
+- RN-13: No se puede modificar una factura ya pagada
+
+--------------------------------------------------------------------
+CLAVE: PAGOS-16
+TIPO DE INCIDENCIA: Historia
+RESUMEN: Eliminar (Anular) Factura
+--------------------------------------------------------------------
+DESCRIPCION:
+
+ID: CU-16
+Nombre: Eliminar (Anular) Factura
+Actor primario: Administrador del sistema
+Actores secundarios: Sistema de Notificaciones
+
+Precondiciones:
+- La factura existe y no ha sido pagada
+
+Postcondiciones (exito):
+- La factura queda en estado "Anulada" y no genera cobro
+
+Flujo principal:
+1. El administrador selecciona la factura a anular
+2. El sistema verifica que no tenga pagos asociados
+3. El sistema solicita el motivo de anulacion
+4. El administrador confirma
+5. El sistema marca la factura como "Anulada" y notifica al cliente
+
+Flujos alternativos:
+5a. Generacion automatica de una nueva factura corregida
+1a. Anulacion masiva de facturas de un mismo periodo por error del proveedor
+3a. Anulacion con adjunto de soporte documental
+
+Excepciones:
+2a. Factura ya pagada: se sugiere generar una nota credito
+3b. Motivo no especificado: obligatorio antes de anular
+5b. Fallo en la notificacion al cliente tras la anulacion
+
+Reglas de negocio referenciadas:
+- RN-13: No se puede modificar (ni anular) una factura ya pagada
+
+--------------------------------------------------------------------
+CLAVE: PAGOS-17
+TIPO DE INCIDENCIA: Historia
+RESUMEN: Consultar Pago
+--------------------------------------------------------------------
+DESCRIPCION:
+
+ID: CU-17
+Nombre: Consultar Pago
+Actor primario: Cliente / Administrador del sistema
+Actores secundarios: -
+
+Precondiciones:
+- El pago existe (fue registrado por CU-21 "Procesar Pago")
+
+Postcondiciones (exito):
+- Se muestra el detalle del pago sin modificarlo
+
+Flujo principal:
+1. El actor busca el pago por referencia, cliente o fecha
+2. El sistema recupera el registro del pago
+3. El sistema muestra monto, fecha, factura(s) asociadas y estado
+
+Flujos alternativos:
+3a. Descarga del comprobante de pago en PDF
+1a. Consulta por rango de fechas
+1b. Consulta agrupada por metodo de pago (debito directo, transferencia)
+
+Excepciones:
+2a. Pago no encontrado
+1c. Acceso no autorizado a pago de otro cliente
+3b. Error al generar el comprobante en PDF
+
+Reglas de negocio referenciadas:
+- RN-03: Un cliente solo puede consultar su propia informacion, salvo el administrador
+
+--------------------------------------------------------------------
+CLAVE: PAGOS-18
+TIPO DE INCIDENCIA: Historia
+RESUMEN: Actualizar estado de Pago
+--------------------------------------------------------------------
+DESCRIPCION:
+
+ID: CU-18
+Nombre: Actualizar estado de Pago
+Actor primario: Administrador del sistema
+Actores secundarios: Sistema Bancario
+
+Precondiciones:
+- El pago existe en estado "En proceso" o "Rechazado"
+
+Postcondiciones (exito):
+- El estado del pago queda actualizado segun la confirmacion bancaria
+
+Flujo principal:
+1. El administrador selecciona el pago a revisar
+2. El sistema consulta el estado actual ante el Sistema Bancario
+3. El sistema actualiza el estado (Confirmado/Rechazado)
+4. El sistema refleja el cambio en la factura asociada
+
+Flujos alternativos:
+2a. Conciliacion manual con soporte bancario adjunto
+2b. Reintento automatico periodico de la confirmacion
+3a. Actualizacion masiva de varios pagos "En proceso" a la vez
+
+Excepciones:
+2c. Sin respuesta bancaria: se genera alerta para revision manual
+3b. Inconsistencia de montos entre lo confirmado y lo registrado
+4a. Error al actualizar el estado de la factura asociada
+
+Reglas de negocio referenciadas:
+- RN-14: Todo pago "En proceso" debe resolverse dentro de un plazo maximo
+
+--------------------------------------------------------------------
+CLAVE: PAGOS-19
+TIPO DE INCIDENCIA: Historia
+RESUMEN: Eliminar (Reversar) Pago
+--------------------------------------------------------------------
+DESCRIPCION:
+
+ID: CU-19
+Nombre: Eliminar (Reversar) Pago
+Actor primario: Administrador del sistema
+Actores secundarios: Sistema Bancario, Sistema de Notificaciones
+
+Precondiciones:
+- El pago existe y fue registrado por error o duplicado
+
+Postcondiciones (exito):
+- El pago queda "Reversado" y la factura vuelve a estado "Pendiente"
+
+Flujo principal:
+1. El administrador selecciona el pago a reversar
+2. El sistema valida que el pago sea reversable (dentro del plazo permitido)
+3. El sistema solicita el motivo de la reversion
+4. El sistema solicita la reversion al Sistema Bancario
+5. El sistema actualiza el pago a "Reversado" y la factura a "Pendiente"
+
+Flujos alternativos:
+1a. Reversion parcial cuando el pago cubria varias facturas
+4a. Generacion de nota credito en vez de reversar
+5a. Notificacion automatica al cliente sobre la reversion
+
+Excepciones:
+2a. Plazo vencido: se rechaza la operacion
+4b. Fondos ya liberados: la reversion falla y se marca para gestion manual
+3a. Motivo no especificado: obligatorio antes de continuar
+
+Reglas de negocio referenciadas:
+- RN-15: Un pago solo es reversable dentro de las 24 horas siguientes a su confirmacion
+
+--------------------------------------------------------------------
+CLAVE: PAGOS-20
+TIPO DE INCIDENCIA: Historia
+RESUMEN: Obtener Saldo de Cuenta
+--------------------------------------------------------------------
+DESCRIPCION:
+
+ID: CU-20
+Nombre: Obtener Saldo de Cuenta
+Actor primario: Cliente
+Actores secundarios: Sistema Bancario
+
+Precondiciones:
+- La cuenta existe y pertenece al cliente autenticado
+
+Postcondiciones (exito):
+- Se muestra el saldo actualizado sin alterar el estado de la cuenta
+
+Flujo principal:
+1. El cliente selecciona la cuenta y solicita el saldo
+2. El sistema valida que el cliente sea titular de la cuenta
+3. El sistema consulta el saldo en tiempo real ante el Sistema Bancario
+4. El sistema muestra el saldo disponible y la fecha/hora de la consulta
+
+Flujos alternativos:
+1a. Saldo consolidado de todas las cuentas del cliente
+4a. Detalle de sobregiro para cuentas corrientes (saldo propio vs. cupo disponible)
+1b. Consulta de saldo proyectado incluyendo pagos programados
+
+Excepciones:
+2a. Cuenta bloqueada: no se expone el saldo
+3a. Fallo de comunicacion bancaria: se muestra el ultimo saldo conocido con advertencia
+2b. Cliente no es titular de la cuenta consultada: acceso denegado
+
+Reglas de negocio referenciadas:
+- RN-16: El saldo consultado debe reflejar el core bancario en tiempo real, salvo contingencia
+
+--------------------------------------------------------------------
+CLAVE: PAGOS-21
+TIPO DE INCIDENCIA: Historia
+RESUMEN: Procesar Pago
+--------------------------------------------------------------------
+DESCRIPCION:
+
+ID: CU-21
+Nombre: Procesar Pago
+Actor primario: Cliente
+Actores secundarios: Sistema Bancario, Sistema de Notificaciones
+
+Precondiciones:
+- El cliente esta autenticado y tiene al menos una factura pendiente
+- La cuenta de origen tiene saldo (o cupo de sobregiro) suficiente
+
+Postcondiciones (exito):
+- La factura queda en estado "Pagada"
+- Se genera un registro de pago con numero de referencia unico
+- El saldo de la cuenta de origen se debita
+
+Flujo principal:
+1. El cliente selecciona la(s) factura(s) a pagar y la cuenta de origen
+2. El sistema valida el saldo disponible en la cuenta
+3. El sistema muestra un resumen para confirmacion
+4. El cliente confirma la operacion
+5. El sistema envia la orden de debito al Sistema Bancario
+6. El Sistema Bancario confirma la transaccion
+7. El sistema registra el pago y actualiza la factura a "Pagada"
+8. El sistema de notificaciones envia el comprobante al cliente
+
+Flujos alternativos:
+1a. Pago parcial de la factura (queda en estado "Pago parcial")
+1b. Pago de multiples facturas en un solo movimiento prorrateado
+4a. El cliente cancela la confirmacion y el caso de uso termina sin cambios
+
+Excepciones:
+2a. Saldo insuficiente: el sistema informa y termina la operacion
+6a. Fallo o timeout del Sistema Bancario: rollback y el pago queda "En proceso"
+8a. Fallo en el envio del comprobante: el pago queda registrado pero se reintenta la notificacion
+
+Reglas de negocio referenciadas:
+- RN-14: Todo pago "En proceso" debe resolverse dentro de un plazo maximo
+- RN-17: No se permite doble debito sobre la misma orden de pago
+
+--------------------------------------------------------------------
+CLAVE: PAGOS-22
+TIPO DE INCIDENCIA: Historia
+RESUMEN: Obtener Pagos por Cliente
+--------------------------------------------------------------------
+DESCRIPCION:
+
+ID: CU-22
+Nombre: Obtener Pagos por Cliente
+Actor primario: Cliente / Administrador del sistema
+Actores secundarios: -
+
+Precondiciones:
+- El cliente existe en el sistema
+
+Postcondiciones (exito):
+- Se muestra el historial de pagos del cliente sin modificarlo
+
+Flujo principal:
+1. El actor selecciona al cliente (o accede a su propio historial)
+2. El sistema recupera todos los pagos asociados al cliente
+3. El sistema muestra la lista ordenada por fecha descendente
+
+Flujos alternativos:
+1a. Filtro por rango de fechas o estado
+3a. Exportacion del historial a PDF o Excel
+1b. Agrupacion de pagos por cuenta de origen
+
+Excepciones:
+2a. Sin pagos registrados: se muestra mensaje informativo
+1c. Cliente inexistente
+3b. Error al generar el archivo de exportacion
+
+Reglas de negocio referenciadas:
+- RN-03: Un cliente solo puede consultar su propia informacion, salvo el administrador
+
+--------------------------------------------------------------------
+CLAVE: PAGOS-23
+TIPO DE INCIDENCIA: Historia
+RESUMEN: Obtener Facturas por Cliente
+--------------------------------------------------------------------
+DESCRIPCION:
+
+ID: CU-23
+Nombre: Obtener Facturas por Cliente
+Actor primario: Cliente / Administrador del sistema
+Actores secundarios: -
+
+Precondiciones:
+- El cliente existe en el sistema
+
+Postcondiciones (exito):
+- Se muestra el listado de facturas del cliente sin modificarlo
+
+Flujo principal:
+1. El actor selecciona al cliente (o accede a sus propias facturas)
+2. El sistema recupera todas las facturas asociadas al cliente
+3. El sistema muestra la lista con estado, valor y fecha de vencimiento
+
+Flujos alternativos:
+1a. Filtro por estado (pendiente, pagada, vencida, anulada)
+3a. Resumen de deuda total (suma de facturas pendientes)
+1b. Agrupacion de facturas por tipo de servicio
+
+Excepciones:
+2a. Sin facturas registradas: se muestra mensaje informativo
+1c. Cliente inexistente
+3b. Error al calcular el resumen de deuda total
+
+Reglas de negocio referenciadas:
+- RN-03: Un cliente solo puede consultar su propia informacion, salvo el administrador
+
+
